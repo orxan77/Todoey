@@ -24,29 +24,18 @@ class ToDoListViewController: UITableViewController {
     
     var itemArray = [ToDoItem]()
     
-    let defaults = UserDefaults.standard
+    // Creating a path for Items.plist in order to store our ToDoItem Array
     
+    // .documentDirectory = directory of the application
+    // .userDomainMask = inside the current user's file system
+    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
 
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-        let item = ToDoItem()
-        item.title = "First"
-        itemArray.append(item)
+        loadItems()
         
-        let item2 = ToDoItem()
-        item2.title = "Second"
-        itemArray.append(item2)
-        
-        let item3 = ToDoItem()
-        item3.title = "Third"
-        itemArray.append(item3)
-        
-        // Getting the stored data from UserDefaults
-//        if let items = UserDefaults.standard.array(forKey: "ToDoListArray") as? [String] {
-//            itemArray = items
-//        }
     }
     
     //MARK - Tableview Datasource Methods
@@ -78,7 +67,9 @@ class ToDoListViewController: UITableViewController {
         
         // Little trick for setting the isDone property
         itemArray[indexPath.row].isDone = !itemArray[indexPath.row].isDone
-    
+        
+        saveData()
+        
         tableView.reloadData()
         
         // When clicking, it deselects the row in an animated way
@@ -98,11 +89,18 @@ class ToDoListViewController: UITableViewController {
         // Adding the ToDo item to the UserDefaults
         let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
             
+            // Creating new ToDoItem
             let newItem = ToDoItem()
+            
+            // Setting its title property
             newItem.title = textField.text!
             
+            // Appending to the array which is global
             self.itemArray.append(newItem)
-            self.defaults.set(self.itemArray, forKey: "ToDoListArray")
+            
+            self.saveData()
+            
+            // Reloading the TableView to show the changes
             self.tableView.reloadData()
         }
         
@@ -117,6 +115,35 @@ class ToDoListViewController: UITableViewController {
         present(alert, animated: true, completion:   nil)
     }
     
+    //MARK - Model Manipulating Methods
     
+    func saveData() {
+        // Storing it into the Items.plist
+        let encoder = PropertyListEncoder()
+        
+        do {
+            // Encoding the itemArray into plist in order to be able to store it
+            let data = try encoder.encode(itemArray)
+            
+            // Writing itemArray to the specific path
+            try data.write(to: dataFilePath!)
+            
+        } catch {
+            print("Error encoding itemArray: \(error)")
+        }
+    }
+    
+    func loadItems() {
+        
+        // Decoding or retrieving data from Items.plist
+        if let data = try? Data(contentsOf: dataFilePath!) {
+            let decoder = PropertyListDecoder()
+            do {
+            itemArray = try decoder.decode([ToDoItem].self, from: data)
+            } catch {
+                print("Error occurred while decoding: \(error)")
+            }
+        }
+    }
 }
 

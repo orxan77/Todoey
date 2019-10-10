@@ -8,8 +8,10 @@
 
 import Foundation
 
-class ToDoItem {
+// Inheriting Codable in order to make ToDoItem to be encoded into the plist or decoded from the plist
+class ToDoItem: Codable {
     
+    // Properties should have standard data types
     var title : String = ""
     var isDone : Bool = false
     
