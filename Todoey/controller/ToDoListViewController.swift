@@ -19,20 +19,21 @@
  
  */
 import UIKit
+import CoreData
 
 class ToDoListViewController: UITableViewController {
     
     var itemArray = [ToDoItem]()
-    
-    // Creating a path for Items.plist in order to store our ToDoItem Array
-    
-    // .documentDirectory = directory of the application
-    // .userDomainMask = inside the current user's file system
-    let dataFilePath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.appendingPathComponent("Items.plist")
 
+    // Accessing the viewContext through the UIApplication
+    let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
+        
+        print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
+
         
         loadItems()
         
@@ -67,7 +68,13 @@ class ToDoListViewController: UITableViewController {
         
         // Little trick for setting the isDone property
         itemArray[indexPath.row].isDone = !itemArray[indexPath.row].isDone
-        
+
+/*
+          For removing the ToDoItem. Order is important. First from database, then from array
+  
+          context.delete(itemArray[indexPath.row])
+          itemArray.remove(at: indexPath.row)
+*/
         saveData()
         
         tableView.reloadData()
@@ -90,10 +97,11 @@ class ToDoListViewController: UITableViewController {
         let action = UIAlertAction(title: "Add Item", style: .default) { (action) in
             
             // Creating new ToDoItem
-            let newItem = ToDoItem()
+            let newItem = ToDoItem(context: self.context)
             
-            // Setting its title property
+            // Setting its title and isDone properties
             newItem.title = textField.text!
+            newItem.isDone = false
             
             // Appending to the array which is global
             self.itemArray.append(newItem)
@@ -118,31 +126,21 @@ class ToDoListViewController: UITableViewController {
     //MARK - Model Manipulating Methods
     
     func saveData() {
-        // Storing it into the Items.plist
-        let encoder = PropertyListEncoder()
-        
+    
         do {
-            // Encoding the itemArray into plist in order to be able to store it
-            let data = try encoder.encode(itemArray)
-            
-            // Writing itemArray to the specific path
-            try data.write(to: dataFilePath!)
-            
+            try context.save()
         } catch {
-            print("Error encoding itemArray: \(error)")
+            print("Error saving context: \(context)")
         }
     }
     
     func loadItems() {
-        
-        // Decoding or retrieving data from Items.plist
-        if let data = try? Data(contentsOf: dataFilePath!) {
-            let decoder = PropertyListDecoder()
-            do {
-            itemArray = try decoder.decode([ToDoItem].self, from: data)
-            } catch {
-                print("Error occurred while decoding: \(error)")
-            }
+        // First, we have to construct the request, then we have to make a request using context.
+        let request : NSFetchRequest<ToDoItem> = ToDoItem.fetchRequest()
+        do {
+            itemArray = try context.fetch(request)
+        } catch {
+            print("Error occurred in loadItems: \(error)")
         }
     }
 }
