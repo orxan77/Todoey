@@ -21,9 +21,18 @@
 import UIKit
 import CoreData
 
-class ToDoListViewController: UITableViewController {
+class ToDoListViewController: UITableViewController{
+    @IBOutlet weak var searchBar: UISearchBar!
     
     var itemArray = [ToDoItem]()
+    
+    var selectedCategory : Category? {
+        
+        // The lines of code in the didSet is executed when the selectedCategory gets set with a value
+        didSet{
+            loadItems()
+        }
+    }
 
     // Accessing the viewContext through the UIApplication
     let context = (UIApplication.shared.delegate as! AppDelegate).persistentContainer.viewContext
@@ -33,7 +42,8 @@ class ToDoListViewController: UITableViewController {
         // Do any additional setup after loading the view, typically from a nib.
         
         print(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask))
-
+        
+        searchBar.delegate = self
         
         loadItems()
         
@@ -102,7 +112,7 @@ class ToDoListViewController: UITableViewController {
             // Setting its title and isDone properties
             newItem.title = textField.text!
             newItem.isDone = false
-            
+            newItem.parentCategory = self.selectedCategory
             // Appending to the array which is global
             self.itemArray.append(newItem)
             
@@ -123,6 +133,8 @@ class ToDoListViewController: UITableViewController {
         present(alert, animated: true, completion:   nil)
     }
     
+    
+    
     //MARK - Model Manipulating Methods
     
     func saveData() {
@@ -134,14 +146,89 @@ class ToDoListViewController: UITableViewController {
         }
     }
     
-    func loadItems() {
-        // First, we have to construct the request, then we have to make a request using context.
-        let request : NSFetchRequest<ToDoItem> = ToDoItem.fetchRequest()
+    
+    // with: external paramater which is seen by the ones who call the method
+    // request: internal parameter which is used within method
+    // equal (=) sign means that ToDoItem.fetchRequest() is the default value when no parameter is provided
+    func loadItems(with request: NSFetchRequest<ToDoItem> = ToDoItem.fetchRequest(), predicate: NSPredicate? = nil) {
+        
+        let categoryPredicate = NSPredicate(format: "parentCategory.name MATCHES %@", selectedCategory!.name!)
+        
+        // If the predicate parameter is provided and if it is not null, we are using NSCompoundPredicate
+        // and give the predicate array as an input. If not, only predicate is the default one which is
+        // categoryPredicate.
+        if let additionalPredicate = predicate {
+            request.predicate = NSCompoundPredicate(andPredicateWithSubpredicates: [categoryPredicate, additionalPredicate])
+        } else {
+            request.predicate = categoryPredicate
+        }
+        
         do {
             itemArray = try context.fetch(request)
         } catch {
             print("Error occurred in loadItems: \(error)")
         }
     }
+}
+
+
+//MARK: SearchBar methods
+// Extension has been used in order the project be neater and easier to read.
+
+extension ToDoListViewController: UISearchBarDelegate {
+    
+    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
+        let request : NSFetchRequest<ToDoItem> = ToDoItem.fetchRequest()
+        
+        // Query language
+        // cd means that it is not CASE and DIACRITIC sensitive
+        let predicate = NSPredicate(format: "title CONTAINS[cd] %@", searchBar.text!)
+        
+        // Sort by title and in ascending (alphabetical) order
+        let sortDescriptor = NSSortDescriptor(key: "title", ascending: true)
+        request.sortDescriptors = [sortDescriptor]
+
+        loadItems(with: request, predicate: predicate)
+        
+        tableView.reloadData()
+    }
+    
+    func searchBar(_ searchBar: UISearchBar, textDidChange searchText: String) {
+
+        // If all the text has been deleted from search bar, load items again.
+        if searchBar.text?.count == 0 {
+            loadItems()
+            self.tableView.reloadData()
+
+            // Makes the OS run the code in the main thread
+            DispatchQueue.main.async {
+                // Search bar should revert to the state when there was no keyboard and cursor.
+                searchBar.resignFirstResponder()
+            }
+        }
+    }
+
+    // Better solution to dismissing keyword and cursor
+//
+//    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+//        searchBar.resignFirstResponder()
+//        searchBar.text = ""
+//        loadItems()
+//    }
+//
+//    func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) {
+//        searchBar.showsCancelButton = true
+//        UIView.animate(withDuration: 0.1) { // not ideal to hardcode the duration
+//            searchBar.layoutIfNeeded()
+//        }
+//    }
+//
+//    func searchBarTextDidEndEditing(_ searchBar: UISearchBar) {
+//        searchBar.showsCancelButton = false
+//        UIView.animate(withDuration: 0.1) {
+//            searchBar.layoutIfNeeded()
+//        }
+//    }
+    
 }
 
