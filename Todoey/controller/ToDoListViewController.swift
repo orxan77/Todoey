@@ -6,22 +6,10 @@
 //  Copyright © 2019 Orkhan Bayramli. All rights reserved.
 //
 
-
-/*
- 
- **DISCLAIMER**
- 
- There is a bug in the App so that once the ToDo item is clicked, this click is also shown in another cell.
- It is because of the cell that we use. We make tableView use the dequeueReusableCell() methode when
- constructing the cells. In this case, the cell that we touch is used again when it is gone off the
- screen. As we are assigning the checkmark property to cell, this checkmark property also stays in the
- cell which is used again.
- 
- */
 import UIKit
 import RealmSwift
 
-class ToDoListViewController: UITableViewController{
+class ToDoListViewController: SwipeTableViewController{
     @IBOutlet weak var searchBar: UISearchBar!
     
     let realm = try! Realm()
@@ -40,10 +28,8 @@ class ToDoListViewController: UITableViewController{
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-        
+        tableView.rowHeight = 80
         searchBar.delegate = self
-        
-//        loadItems()
         
     }
     
@@ -55,7 +41,7 @@ class ToDoListViewController: UITableViewController{
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         
-        let cell = tableView.dequeueReusableCell(withIdentifier: "ToDoItemCell", for: indexPath)
+        let cell = super.tableView(tableView, cellForRowAt: indexPath)
         
         if let item = toDoItems?[indexPath.row] {
             cell.textLabel?.text = item.title
@@ -86,13 +72,6 @@ class ToDoListViewController: UITableViewController{
                 print("Error occurred while updating items: \(error)")
             }
         }
-
-/*
-          For removing the ToDoItem. Order is important. First from database, then from array
-  
-          context.delete(itemArray[indexPath.row])
-          itemArray.remove(at: indexPath.row)
-*/
         
         tableView.reloadData()
         
@@ -119,6 +98,8 @@ class ToDoListViewController: UITableViewController{
             if let currentCategory = self.selectedCategory {
                 
                 do {
+                    
+                    // Saving ToDoItem
                     try self.realm.write {
                         newItem.title = textField.text!
                         newItem.dateCreated = Date()
@@ -148,13 +129,22 @@ class ToDoListViewController: UITableViewController{
     
     
     //MARK - Model Manipulating Methods
-    
-    func saveData() {
-        
-    }
-    
     func loadItems() {
         toDoItems = selectedCategory?.items.sorted(byKeyPath: "title", ascending: true)
+    }
+    
+    override func updateModel(at indexPath: IndexPath) {
+        do {
+            try realm.write {
+                
+                if let currentCategory = self.selectedCategory {
+                    currentCategory.items.remove(at: indexPath.row)
+                }
+                
+            }
+        } catch  {
+            print("Error deleting ToDoItem: \(error)")
+        }
     }
     
 }
@@ -187,29 +177,3 @@ extension ToDoListViewController: UISearchBarDelegate {
         }
     }
 }
-    
-    
-    
-    // Better solution to dismissing keyword and cursor
-//
-//    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
-//        searchBar.resignFirstResponder()
-//        searchBar.text = ""
-//        loadItems()
-//    }
-//
-//    func searchBarTextDidBeginEditing(_ searchBar: UISearchBar) {
-//        searchBar.showsCancelButton = true
-//        UIView.animate(withDuration: 0.1) { // not ideal to hardcode the duration
-//            searchBar.layoutIfNeeded()
-//        }
-//    }
-//
-//    func searchBarTextDidEndEditing(_ searchBar: UISearchBar) {
-//        searchBar.showsCancelButton = false
-//        UIView.animate(withDuration: 0.1) {
-//            searchBar.layoutIfNeeded()
-//        }
-//    }
-
-
