@@ -12,6 +12,7 @@ import RealmSwift
 class Category: Object {
     
     @objc dynamic var name : String = ""
+    @objc dynamic var color : String = ""
     
     // Declaring relationship as in the DataModel via using List that comes from Realm.
     // P.S. forward relationship.

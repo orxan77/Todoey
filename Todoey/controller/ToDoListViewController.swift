@@ -8,6 +8,7 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
 class ToDoListViewController: SwipeTableViewController{
     @IBOutlet weak var searchBar: UISearchBar!
@@ -23,17 +24,66 @@ class ToDoListViewController: SwipeTableViewController{
             loadItems()
         }
     }
+    
+    // MARK: Lifecycle Methods
 
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
         
-        tableView.rowHeight = 80
         searchBar.delegate = self
+        
+        tableView.separatorStyle = .none
         
     }
     
-    //MARK - Tableview Datasource Methods
+    // This method is called right before the view is showing up on screen
+    override func viewWillAppear(_ animated: Bool) {
+        
+        // IMPORTANT: If we are sure that, the value is not null, it is better to
+        // use the guard instead if if let statement
+        guard let colorHex = selectedCategory?.color else {fatalError()}
+        
+        title = selectedCategory?.name
+        
+        updateNavBar(withHexCode: colorHex)
+
+        
+    }
+    
+    // This method gets called right before the view gets dismissed from the view stack
+    override func viewWillDisappear(_ animated: Bool) {
+        
+        updateNavBar(withHexCode: "1D9BF6")
+        
+    }
+    
+    // MARK: - Nav Bar setup methods
+    
+    func updateNavBar(withHexCode colorHexCode : String) {
+        
+        // guard keyword: Throwing error
+        guard let navBar = navigationController?.navigationBar else {
+            fatalError("Navigation Controller does not exist")
+        }
+        
+        guard let navBarColor = UIColor(hexString: colorHexCode) else {fatalError()}
+        
+        // Color of navugation backgroun
+        navBar.barTintColor = navBarColor
+        
+        // Color of navigation and bar button items
+        navBar.tintColor = ContrastColorOf(navBarColor, returnFlat: true)
+        
+        // IMPORTANT! : Because we are using large title
+        navBar.largeTitleTextAttributes = [NSAttributedString.Key.foregroundColor : ContrastColorOf(navBarColor, returnFlat: true)]
+        
+        // Background of search bar
+        searchBar.barTintColor = navBarColor
+    }
+    
+    
+    // MARK: - Tableview Datasource Methods
     
     override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
         return toDoItems?.count ?? 1
@@ -46,6 +96,13 @@ class ToDoListViewController: SwipeTableViewController{
         if let item = toDoItems?[indexPath.row] {
             cell.textLabel?.text = item.title
 
+            // If color is not nil, then proceed
+            if let color = UIColor(hexString: selectedCategory!.color)?.darken(byPercentage: CGFloat(indexPath.row)/CGFloat(toDoItems!.count)) {
+                
+                cell.backgroundColor = color
+                cell.textLabel?.textColor = ContrastColorOf(color, returnFlat: true)
+            }
+                
             // **Ternary operator**
             //
             // If item.isDone is true the assign .checkmark to the cell.accessoryType,
@@ -59,7 +116,7 @@ class ToDoListViewController: SwipeTableViewController{
     }
     
     
-    //MARK - Tableview Delegate Methods
+    // MARK: - Tableview Delegate Methods
     
     override func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         
@@ -79,7 +136,7 @@ class ToDoListViewController: SwipeTableViewController{
         tableView.deselectRow(at: indexPath, animated: true)
     }
     
-    //MARK - Add new items
+    // MARK: - Add new items
     
     // Creating UIAlert for adding new item
     @IBAction func addButtonPressed(_ sender: UIBarButtonItem) {
@@ -128,29 +185,28 @@ class ToDoListViewController: SwipeTableViewController{
     
     
     
-    //MARK - Model Manipulating Methods
+    // MARK: - Model Manipulating Methods
     func loadItems() {
         toDoItems = selectedCategory?.items.sorted(byKeyPath: "title", ascending: true)
     }
     
     override func updateModel(at indexPath: IndexPath) {
-        do {
-            try realm.write {
-                
-                if let currentCategory = self.selectedCategory {
-                    currentCategory.items.remove(at: indexPath.row)
+        
+        if let item = toDoItems?[indexPath.row] {
+            do {
+                try realm.write {
+                    realm.delete(item)
                 }
-                
+            } catch  {
+                print("Error deleting ToDoItem: \(error)")
             }
-        } catch  {
-            print("Error deleting ToDoItem: \(error)")
         }
     }
     
 }
 
 
-//MARK: SearchBar methods
+// MARK: SearchBar methods
 // Extension has been used in order the project be neater and easier to read.
 
 extension ToDoListViewController: UISearchBarDelegate {
